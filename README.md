@@ -1,5 +1,17 @@
 # FAME
 
+>[!IMPORTANT]
+> This is a customized version of FAME for the spike-in compatibility.
+> The original version can be found [here](https://github.com/FischerJo/FAME)
+
+> [!WARNING]  
+> Always remember to edit the CONST.h before compiling the program.
+> Especially the CORENUM at line 38 and the CHROMNUM at line 45.
+
+> [!TIP]
+> FAME will not infer the input fastq files are gzipped or not.
+> If gzipped, do not forget to use the --gzip_reads flag.
+
 **F**ast and **A**ccurate **ME**thylation Aligner for large mammalian genomes.
 Carries out alignment and methylation calling for CpGs of Whole Genome Bisulfite Sequencing (WGBS) reads in one go without the need of intermediate alignment or buffer files. 
 The algorithm is working on the full alphabet (A,C,G,T), resolving the asymmetric mapping problem\* correctly.
