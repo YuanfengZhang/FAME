@@ -9,8 +9,13 @@
 > Especially the CORENUM at line 38 and the CHROMNUM at line 45.
 
 > [!TIP]
-> FAME will not infer the input fastq files are gzipped or not.
+> FAME will not infer whether the input fastq files are gzipped or not.
 > If gzipped, do not forget to use the --gzip_reads flag.
+
+> [!NOTE]  
+> Currently, I have no intention of releasing this repo as a Pypi / Bioconda pkg,
+> because the CORENUM is determined before compilation.
+> and the refactoring might costs much more time than I think.
 
 **F**ast and **A**ccurate **ME**thylation Aligner for large mammalian genomes.
 Carries out alignment and methylation calling for CpGs of Whole Genome Bisulfite Sequencing (WGBS) reads in one go without the need of intermediate alignment or buffer files. 
