@@ -35,14 +35,16 @@ namespace MyConst {
 constexpr unsigned int READLEN = 100;
 
 // Number of cores that this program is allowed to occupy at any given point
-#define CORENUM 32
+#define CORENUM 8
 
 // closed interval borders for distances allowed between paired reads
 constexpr uint32_t MINPDIST = 50;
 constexpr uint32_t MAXPDIST = 550;
 
 // number of chromosomes in organism
-constexpr unsigned int CHROMNUM = 24;
+// chr1 to chr22 + chrX + chrY + chrM = 25
+// chr1 to chr22 + chrX + chrY + chrM + lambda + pUC19 = 27
+constexpr unsigned int CHROMNUM = 27;
 
 //  --------------------------------------
 
