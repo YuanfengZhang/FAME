@@ -23,6 +23,7 @@
 #include <vector>
 #include <array>
 #include <limits>
+#include <thread>
 
 namespace MyConst {
 
@@ -35,16 +36,24 @@ namespace MyConst {
 constexpr unsigned int READLEN = 100;
 
 // Number of cores that this program is allowed to occupy at any given point
-#define CORENUM 8
+    // Runtime-configurable thread count
+    extern unsigned int coreNum;
+    void setCoreNum(unsigned int num);
+
+    // Get default thread count based on hardware
+    inline unsigned int getDefaultCoreNum() {
+        unsigned int hw = std::thread::hardware_concurrency();
+        return hw > 0 ? hw : 8;
+    }
 
 // closed interval borders for distances allowed between paired reads
 constexpr uint32_t MINPDIST = 50;
 constexpr uint32_t MAXPDIST = 550;
 
 // number of chromosomes in organism
-// chr1 to chr22 + chrX + chrY + chrM = 25
-// chr1 to chr22 + chrX + chrY + chrM + lambda + pUC19 = 27
-constexpr unsigned int CHROMNUM = 27;
+    // chr1 to chr22 + chrX + chrY + chrM = 25
+    // chr1 to chr22 + chrX + chrY + chrM + lambda + pUC19 = 27
+    // CHROMNUM removed - now auto-detected from FASTA input
 
 //  --------------------------------------
 
@@ -110,6 +119,9 @@ constexpr unsigned int SKIPMOD = 2;
 
 // dummy index for CpGs
 constexpr uint32_t CPGDUMMY = std::numeric_limits<uint32_t>::max();
+
+// internal buffer for reading reference file
+constexpr unsigned int BUFSIZE = 256 * 1024;
 
 // Checks the usefulness of the set parameters
 void sanityChecks();

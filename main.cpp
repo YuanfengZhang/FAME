@@ -17,6 +17,9 @@
 //	Jonas Fischer	jonaspost@web.de
 
 #include <chrono>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 
 #include "RefReader_istr.h"
@@ -244,6 +247,19 @@ int main(int argc, char** argv)
 			continue;
 		}
 
+        if (std::string(argv[i]) == "-t" || std::string(argv[i]) == "--threads")
+        {
+            if (i + 1 < argc)
+            {
+                unsigned int t = std::stoul(argv[++i]);
+                MyConst::setCoreNum(t);
+            } else {
+                std::cerr << "No value for option \"" << argv[i] << "\" provided! Terminating...\n\n";
+                exit(1);
+            }
+            continue;
+        }
+
 
         // no such option
         std::cerr << "Don\'t know the option \"" << argv[i] << "\". Terminating...\n\n";
@@ -255,6 +271,13 @@ int main(int argc, char** argv)
 		std::cerr << "Output path for single cell analysis given but no single cell input provided (see \"--sc_input\"). Terminating...\n\n";
 		exit(1);
 	}
+
+    // Set OpenMP thread count
+    #ifdef _OPENMP
+    omp_set_num_threads(MyConst::coreNum);
+    #endif
+
+    std::cout << "Using " << MyConst::coreNum << " threads\n";
 
 
     // Start processing
@@ -550,6 +573,10 @@ void printHelp()
 
 	std::cout << "\t--human_opt     \t\tThe reference genome is treated as GRCH or HG version\n";
 	std::cout << "\t                \t\tof the human genome. Unlocalized contigs etc are pruned.\n\n";
+
+	std::cout << "\t--paired        \t\tSpecify that input reads are paired-end (use with -r).\n\n";
+
+	std::cout << "\t-t, --threads [NUM]\t\tNumber of threads to use (default: auto-detect)\n\n";
 
     std::cout << "\nEXAMPLES\n\n";
 

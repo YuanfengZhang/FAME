@@ -27,13 +27,13 @@
 struct idPos {
 
     // pointer to id line
-    char* const id;
+    const char* id;
     // pointer to next line after the id
-    char* const sec;
+    const char* sec;
     // flag if tag is primary assembly
     const bool imp;
     // Ctor for emplace_back
-    idPos(char* const idC, char* const secC, const bool impC) : id(idC), sec(secC), imp(impC) {}
+    idPos(const char* idC, const char* secC, const bool impC) : id(idC), sec(secC), imp(impC) {}
 };
 
 
@@ -45,6 +45,10 @@ struct CpG {
     // convention: pos points to position of start of context of CpG (C position - READLEN + 2)
     //              or to position of C if the former is negative
     uint32_t pos;
+    // Default constructor
+    CpG() : chrom(0), pos(0) {}
+    // Ctor for emplace_back
+    CpG(uint8_t chromC, uint32_t posC) : chrom(chromC), pos(posC) {}
 };
 
 

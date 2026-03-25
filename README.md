@@ -4,18 +4,16 @@
 > This is a customized version of FAME for the spike-in compatibility.
 > The original version can be found [here](https://github.com/FischerJo/FAME)
 
-> [!WARNING]  
-> Always remember to edit the CONST.h before compiling the program.
-> Especially the CORENUM at line 38 and the CHROMNUM at line 45.
+> [!WARNING]
+> Always remember to check the parameters in CONST.h before compiling the program if you need to customize internal settings.
 
 > [!TIP]
 > FAME will not infer whether the input fastq files are gzipped or not.
 > If gzipped, do not forget to use the --gzip_reads flag.
 
-> [!NOTE]  
+> [!NOTE]
 > Currently, I have no intention of releasing this repo as a Pypi / Bioconda pkg,
-> because the CORENUM is determined before compilation.
-> and the refactoring might costs much more time than I think.
+> and the refactoring might cost more time than I think.
 
 **F**ast and **A**ccurate **ME**thylation Aligner for large mammalian genomes.
 Carries out alignment and methylation calling for CpGs of Whole Genome Bisulfite Sequencing (WGBS) reads in one go without the need of intermediate alignment or buffer files. 
@@ -60,11 +58,39 @@ To retrieve the code base, just clone this repository:
 git clone https://github.com/FischerJo/FAME
 ```
 
-To install FAME on your machine, just use the shipped Makefile by typing
-```
+## Compilation
+
+### Using Make (recommended for development)
+
+```bash
+make clean
 make
 ```
-in the top level directory of the cloned repository.
+
+### Using CMake (recommended for installation)
+
+```bash
+mkdir build && cd build
+cmake ..
+make
+make install
+```
+
+## Runtime Configuration
+
+### Thread Count
+
+Use the `-t` or `--threads` option to specify the number of threads:
+
+```bash
+./FAME --threads 16 --genome reference.fasta --store_index index.bin
+```
+
+Default: Auto-detected based on CPU cores (or 8 if detection fails).
+
+### Chromosome Count
+
+Automatically detected from the input FASTA file. No manual configuration needed.
 
 
 ### C) Simple example
@@ -107,10 +133,8 @@ Here is a list of the external parameters:
 | Parameter     | Definition       | Recommended value  | Location (line number) |
 | ------------- |-------------| -----:| :----: |
 | READLEN      | (Maximum) Length of reads queried to the index | 100 | 35 |
-| CORENUM      | Number of threads spawned by the program. Should be number of free cores on the system. | 16 | 38 |
 | MINPDIST | Minimum distance between a read pair in paired end mode. Measured from end to first read to beginning of second read.| 20 | 41 |
 | MAXPDIST | Maximum distance between a read pair in paired end mode. Measured from end to first read to beginning of second read.| 400 | 42 |
-| CHROMNUM | Number of chromosomes of reference organism. | 24 | 45 |
 
 Here is a list of some important internal parameters, we strongly recommend *NOT* to change them:
 
@@ -152,6 +176,8 @@ Examples on how to use FAME in the command line are given in 2.D.
 | --sc_input | Filepath | Path to file containing meta information on single cell data (see Section 2E). |
 | --sc_output | Filepath | Name for output file of single cell mode. |
 | --store_index | Filepath | Writes output of index construction to filepath (~38GB for human genome). NOTE: Directory must exist. |
+| -t | Integer | Number of threads to use. Default: auto-detected based on CPU cores (or 8 if detection fails). |
+| --threads | Integer | see -t |
 | --unord_reads | None | Disable optimization to find stranding of reads. |
 
 

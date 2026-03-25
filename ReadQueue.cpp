@@ -36,6 +36,17 @@ ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const bool isGZ
     //TODO
     ,   of("errOut.txt")
 {
+    // Initialize thread-local vectors
+    fwdMetaIDs.resize(MyConst::coreNum);
+    revMetaIDs.resize(MyConst::coreNum);
+    paired_fwdMetaIDs.resize(MyConst::coreNum);
+    paired_revMetaIDs.resize(MyConst::coreNum);
+    matchStats.resize(MyConst::coreNum, 0);
+    nonUniqueStats.resize(MyConst::coreNum, 0);
+    noMatchStats.resize(MyConst::coreNum, 0);
+    matchPairedStats.resize(MyConst::coreNum, 0);
+    tooShortCounts.resize(MyConst::coreNum, 0);
+
     if (isGZ)
     {
 
@@ -57,7 +68,7 @@ ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const bool isGZ
     }
 
     // fill counting structure for parallelization
-    for (unsigned int i = 0; i < CORENUM; ++i)
+    for (unsigned int i = 0; i < MyConst::coreNum; ++i)
     {
 
         // fwdMetaIDs[i] = google::dense_hash_map<uint32_t, uint16_t, MetaHash>();
@@ -91,6 +102,16 @@ ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& ref
 	// TODO
     ,   of("errOut.txt")
 {
+    // Initialize thread-local vectors
+    fwdMetaIDs.resize(MyConst::coreNum);
+    revMetaIDs.resize(MyConst::coreNum);
+    paired_fwdMetaIDs.resize(MyConst::coreNum);
+    paired_revMetaIDs.resize(MyConst::coreNum);
+    matchStats.resize(MyConst::coreNum, 0);
+    nonUniqueStats.resize(MyConst::coreNum, 0);
+    noMatchStats.resize(MyConst::coreNum, 0);
+    matchPairedStats.resize(MyConst::coreNum, 0);
+    tooShortCounts.resize(MyConst::coreNum, 0);
 
 
 
@@ -161,7 +182,7 @@ ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& ref
     }
 
     // fill counting structure for parallelization
-    for (unsigned int i = 0; i < CORENUM; ++i)
+    for (unsigned int i = 0; i < MyConst::coreNum; ++i)
     {
 
         // paired_fwdMetaIDs[i] = google::dense_hash_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>();
@@ -196,6 +217,16 @@ ReadQueue::ReadQueue(const char* scOutputPath, RefGenome& reference, const bool 
 	// TODO
     ,   of("errOut.txt")
 {
+    // Initialize thread-local vectors
+    fwdMetaIDs.resize(MyConst::coreNum);
+    revMetaIDs.resize(MyConst::coreNum);
+    paired_fwdMetaIDs.resize(MyConst::coreNum);
+    paired_revMetaIDs.resize(MyConst::coreNum);
+    matchStats.resize(MyConst::coreNum, 0);
+    nonUniqueStats.resize(MyConst::coreNum, 0);
+    noMatchStats.resize(MyConst::coreNum, 0);
+    matchPairedStats.resize(MyConst::coreNum, 0);
+    tooShortCounts.resize(MyConst::coreNum, 0);
 
     // fill array mapping - locale specific filling
     lmap['A'%16] = 0;
@@ -405,7 +436,7 @@ bool ReadQueue::matchReads(const unsigned int& procReads, uint64_t& succMatch, u
 {
 
     // reset all counters
-    for (unsigned int i = 0; i < CORENUM; ++i)
+    for (unsigned int i = 0; i < MyConst::coreNum; ++i)
     {
         matchStats[i] = 0;
         nonUniqueStats[i] = 0;
@@ -413,7 +444,7 @@ bool ReadQueue::matchReads(const unsigned int& procReads, uint64_t& succMatch, u
     }
 
 #ifdef _OPENMP
-#pragma omp parallel for num_threads(CORENUM) schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
     for (unsigned int i = 0; i < procReads; ++i)
     {
@@ -923,7 +954,7 @@ bool ReadQueue::matchReads(const unsigned int& procReads, uint64_t& succMatch, u
     }
 
     // sum up counts
-    for (unsigned int i = 0; i < CORENUM; ++i)
+    for (unsigned int i = 0; i < MyConst::coreNum; ++i)
     {
         succMatch += matchStats[i];
         nonUniqueMatch += nonUniqueStats[i];
@@ -937,7 +968,7 @@ bool ReadQueue::matchPairedReads(const unsigned int& procReads, uint64_t& succMa
 
 
     // reset all counters
-    for (unsigned int i = 0; i < CORENUM; ++i)
+    for (unsigned int i = 0; i < MyConst::coreNum; ++i)
     {
         matchStats[i] = 0;
         nonUniqueStats[i] = 0;
@@ -950,7 +981,7 @@ bool ReadQueue::matchPairedReads(const unsigned int& procReads, uint64_t& succMa
 	// std::ofstream of2 ("errOut2.txt");
 
 #ifdef _OPENMP
-#pragma omp parallel for num_threads(CORENUM) schedule(dynamic,50)
+#pragma omp parallel for schedule(dynamic,50)
 #endif
     for (unsigned int i = 0; i < procReads; ++i)
     {
@@ -1643,7 +1674,7 @@ bool ReadQueue::matchPairedReads(const unsigned int& procReads, uint64_t& succMa
     }
 
     // sum up counts
-    for (unsigned int i = 0; i < CORENUM; ++i)
+    for (unsigned int i = 0; i < MyConst::coreNum; ++i)
     {
         succMatch += matchStats[i];
         nonUniqueMatch += nonUniqueStats[i];
@@ -1685,7 +1716,7 @@ bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const b
 
 
     // fill counting structure for parallelization
-    for (unsigned int j = 0; j < CORENUM; ++j)
+    for (unsigned int j = 0; j < MyConst::coreNum; ++j)
     {
 
         // fwdMetaIDs[j] = google::dense_hash_map<uint32_t, uint16_t, MetaHash>();
@@ -1782,7 +1813,7 @@ bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, con
 	r1RevMatches = 0;
 
     // fill counting structure for parallelization
-    for (unsigned int j = 0; j < CORENUM; ++j)
+    for (unsigned int j = 0; j < MyConst::coreNum; ++j)
     {
 
 		paired_fwdMetaIDs[j] = tsl::hopscotch_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>();

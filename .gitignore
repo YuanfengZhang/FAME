@@ -55,3 +55,6 @@ test/tester
 # subproject folders
 Synth*
 metaCpGstats*
+
+# FAME binary
+FAME

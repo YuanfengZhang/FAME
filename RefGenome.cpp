@@ -48,7 +48,6 @@ RefGenome::RefGenome(std::vector<struct CpG>&& cpgTab, std::vector<struct CpG>&&
     // init meta table with upper bound on required windows
     // metaCpGs.reserve(gensize/MyConst::WINLEN);
     metaWindows.reserve(gensize/MyConst::WINLEN);
-    // metaStartCpGs.reserve(MyConst::CHROMNUM);
     // fill meta table
     // generateMetaCpGs();
 	generateWindows();

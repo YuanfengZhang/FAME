@@ -15,7 +15,7 @@ void readReference(const char* const filename, vector<struct CpG>& cpgTab, vecto
 
     // reserve CPGMAX many entries (should be roughly more than CpGs in human genome)
     cpgTab.reserve(MyConst::CPGMAX);
-    genSeq.reserve(MyConst::CHROMNUM);
+    genSeq.reserve(64);  // Most genomes have fewer than 64 chromosomes
 
     // stores the length of the sequence read so far
     unsigned int seqLength = 0;
@@ -104,7 +104,7 @@ void readReference(const char* const filename, vector<struct CpG>& cpgTab, vecto
         }
 
         //  where to start reading buffer
-        char * primStart;
+        const char * primStart;
         unsigned int offset;
 
         while (!idQueue.empty()) {
@@ -164,14 +164,14 @@ void readReference(const char* const filename, vector<struct CpG>& cpgTab, vecto
 }
 
 
-inline unsigned int readBufferSlice(char* const start, const unsigned int offset, std::string& chromSeq)
+inline unsigned int readBufferSlice(const char* const start, const unsigned int offset, std::string& chromSeq)
 {
 
     unsigned int savedChars = 0;
     // stores previous newline + 1 (i.e. beginning of next line)
-    char* prevNL;
+    const char* prevNL;
     // find the first newline
-    if ( (prevNL =(char*) memchr(start, '\n', offset)) )
+    if ( (prevNL =(const char*) memchr(start, '\n', offset)) )
     {
 
         // append chars until newline
@@ -189,7 +189,7 @@ inline unsigned int readBufferSlice(char* const start, const unsigned int offset
     ++prevNL;
 
     // read buffer until next newline, append this part to sequence
-    for(char * line = start; (line = (char*) memchr(line, '\n', (start + offset) - line)); )
+    for(const char * line = start; (line = (const char*) memchr(line, '\n', (start + offset) - line)); )
     {
 
         // append the line to sequence
@@ -207,7 +207,7 @@ inline unsigned int readBufferSlice(char* const start, const unsigned int offset
 }
 
 
-bool constructCpgs(char* const start, const unsigned int offset, const uint8_t chrIndex, const unsigned int SeqLength, std::vector<struct CpG>& cpgTab, bool& cEndFlag)
+bool constructCpgs(const char* const start, const unsigned int offset, const uint8_t chrIndex, const unsigned int SeqLength, std::vector<struct CpG>& cpgTab, bool& cEndFlag)
 {
 
     // TODO: skip newline from count...
@@ -228,7 +228,7 @@ bool constructCpgs(char* const start, const unsigned int offset, const uint8_t c
     }
 
     // find Cs
-    for (char* cBase = start; (cBase = (char*) memchr(cBase, 'C', (start + offset - 1) - cBase)); ++cBase)
+    for (const char* cBase = start; (cBase = (const char*) memchr(cBase, 'C', (start + offset - 1) - cBase)); ++cBase)
     {
 
         // if next character is G, construct CpG
@@ -240,7 +240,7 @@ bool constructCpgs(char* const start, const unsigned int offset, const uint8_t c
 
     }
     // find cs (lowercase mask for repeats)
-    for (char* cBase = start; (cBase = (char*) memchr(cBase, 'c', (start + offset - 1) - cBase)); ++cBase)
+    for (const char* cBase = start; (cBase = (const char*) memchr(cBase, 'c', (start + offset - 1) - cBase)); ++cBase)
     {
 
         // if next character is G, construct CpG
@@ -256,7 +256,9 @@ bool constructCpgs(char* const start, const unsigned int offset, const uint8_t c
     if (*(start + offset) == 'C' || *(start + offset) == 'c')
     {
         cEndFlag = true;
+    } else {
+        cEndFlag = false;
     }
 
-    cEndFlag = false;
+    return true;
 }

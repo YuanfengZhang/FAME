@@ -1,0 +1,37 @@
+package:
+  name: fame
+  version: {{ environ.get('GIT_DESCRIBE_TAG', '1.0.0') }}
+
+source:
+  path: .
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - {{ compiler('cxx') }}
+    - cmake
+    - make
+  host:
+    - zlib
+    - llvm-openmp  # [osx]
+    - libgomp      # [linux]
+  run:
+    - zlib
+    - llvm-openmp  # [osx]
+    - libgomp      # [linux]
+
+test:
+  commands:
+    - fame --help
+
+about:
+  home: https://github.com/user/FAME
+  license: GPL-3.0-or-later
+  license_file: LICENSE
+  summary: Fast methylation alignment tool for WGBS data
+  description: |
+    FAME is a fast methylation alignment and calling tool for whole-genome
+    bisulfite sequencing (WGBS) data. It uses spaced seeds and bit-parallel
+    algorithms for efficient alignment.

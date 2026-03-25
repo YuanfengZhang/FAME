@@ -273,8 +273,8 @@ class ReadQueue
         // 'T' -> 3
         std::array<uint8_t, 16> lmap;
 
-        std::array<tsl::hopscotch_map<uint32_t, uint16_t, MetaHash>, CORENUM> fwdMetaIDs;
-        std::array<tsl::hopscotch_map<uint32_t, uint16_t, MetaHash>, CORENUM> revMetaIDs;
+        std::vector<tsl::hopscotch_map<uint32_t, uint16_t, MetaHash>> fwdMetaIDs;
+        std::vector<tsl::hopscotch_map<uint32_t, uint16_t, MetaHash>> revMetaIDs;
         // Holds counts for each thread for counting heuristic
         // KEY: Meta CpG ID
         // VALUE:
@@ -285,8 +285,8 @@ class ReadQueue
         //
         // std::array<google::dense_hash_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>, CORENUM> paired_fwdMetaIDs;
         // std::array<google::dense_hash_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>, CORENUM> paired_revMetaIDs;
-        std::array<tsl::hopscotch_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>, CORENUM> paired_fwdMetaIDs;
-        std::array<tsl::hopscotch_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>, CORENUM> paired_revMetaIDs;
+        std::vector<tsl::hopscotch_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>> paired_fwdMetaIDs;
+        std::vector<tsl::hopscotch_map<uint32_t, std::tuple<uint8_t, uint8_t, bool, bool>, MetaHash>> paired_revMetaIDs;
 
         bool isPaired;
 		bool isSC;
@@ -375,11 +375,11 @@ class ReadQueue
 		std::ofstream scOutput;
 
         // holds matching info
-        std::array<uint64_t, CORENUM> matchStats;
-        std::array<uint64_t, CORENUM> nonUniqueStats;
-        std::array<uint64_t, CORENUM> noMatchStats;
-        std::array<uint64_t, CORENUM> matchPairedStats;
-        std::array<uint64_t, CORENUM> tooShortCounts;
+        std::vector<uint64_t> matchStats;
+        std::vector<uint64_t> nonUniqueStats;
+        std::vector<uint64_t> noMatchStats;
+        std::vector<uint64_t> matchPairedStats;
+        std::vector<uint64_t> tooShortCounts;
 
 		bool bothStrandsFlag;
 		// counter for read 1 matches to fwd strand

@@ -21,6 +21,18 @@
 #include "CONST.h"
 
 
+// Define the extern variable with default value
+unsigned int MyConst::coreNum = MyConst::getDefaultCoreNum();
+
+void MyConst::setCoreNum(unsigned int num) {
+    if (num == 0 || num > 256) {
+        std::cerr << "Invalid thread count: " << num
+                  << ". Valid range: 1-256. Using default: " << coreNum << "\n";
+        return;
+    }
+    coreNum = num;
+}
+
 void MyConst::sanityChecks()
 {
 

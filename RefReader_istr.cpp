@@ -28,7 +28,7 @@ void readReference(const std::string& filename, std::vector<struct CpG>& cpgTab,
     // Stores the sequence of each chromosome
     std::vector<char> seq;
 
-    genSeq.reserve(MyConst::CHROMNUM);
+    genSeq.reserve(64);  // Most genomes have fewer than 64 chromosomes
     seq.reserve(MyConst::CHROMMAX);
     cpgTab.reserve(MyConst::CPGMAX);
 
