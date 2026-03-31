@@ -26,10 +26,17 @@
 #include "RefGenome.h"
 #include "ReadQueue.h"
 
+// Helper function to detect gzipped files by checking .gz suffix
+bool hasGzSuffix(const char* filepath) {
+    if (filepath == nullptr) return false;
+    std::string path(filepath);
+    return path.length() >= 3 && path.compare(path.length() - 3, 3, ".gz") == 0;
+}
+
 void queryRoutine(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag);
 void queryRoutinePaired(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag);
-void queryRoutineSC(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag, const char* scMetaFile);
-void queryRoutineSCPaired(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag, const char* scMetaFile);
+void queryRoutineSC(ReadQueue& rQue, const bool bothStrandsFlag, const char* scMetaFile);
+void queryRoutineSCPaired(ReadQueue& rQue, const bool bothStrandsFlag, const char* scMetaFile);
 void printHelp();
 
 // --------------- MAIN -----------------
@@ -51,8 +58,6 @@ int main(int argc, char** argv)
     bool loadIndexFlag = false;
     // true iff index should be stored
     bool storeIndexFlag = false;
-    // true iff reads are in .gz format
-    bool readsGZ = false;
     // true iff index should be filtered only lossless
     bool noloss = false;
     // true iff two (paired) read files are provided
@@ -176,12 +181,6 @@ int main(int argc, char** argv)
             continue;
         }
 
-        if (std::string(argv[i]) == "--gzip_reads")
-        {
-            readsGZ = true;
-            continue;
-        }
-
         if (std::string(argv[i]) == "-o" || std::string(argv[i]) == "--out_basename")
         {
             if (i + 1 < argc)
@@ -298,8 +297,8 @@ int main(int argc, char** argv)
 			if (scFlag)
 			{
 
-				ReadQueue rQue(scOutputFile, ref, readsGZ, bothStrandsFlag, true);
-				queryRoutineSCPaired(rQue, readsGZ, bothStrandsFlag, scMetaFile);
+				ReadQueue rQue(scOutputFile, ref, false, bothStrandsFlag, true);
+				queryRoutineSCPaired(rQue, bothStrandsFlag, scMetaFile);
 				rQue.printMethylationLevels(outputFile);
 
 			} else {
@@ -309,8 +308,15 @@ int main(int argc, char** argv)
 					std::cerr << "Entered paired end mode (\"-r1\" or \"-r2\" flag), but one of the read files is missing. Terminating...\n\n";
 					exit(1);
 				}
-				ReadQueue rQue(readFile, readFile2, ref, readsGZ, bothStrandsFlag);
-				queryRoutinePaired(rQue, readsGZ, bothStrandsFlag);
+				// Auto-detect gzipped files based on suffix
+				bool r1IsGz = hasGzSuffix(readFile);
+				bool r2IsGz = hasGzSuffix(readFile2);
+				if (r1IsGz != r2IsGz) {
+					std::cerr << "WARNING: Read files have different formats (one .gz, one not). "
+					          << "Treating as " << (r1IsGz ? "gzipped" : "non-gzipped") << " based on -r1 file.\n\n";
+				}
+				ReadQueue rQue(readFile, readFile2, ref, r1IsGz, bothStrandsFlag);
+				queryRoutinePaired(rQue, r1IsGz, bothStrandsFlag);
 				rQue.printMethylationLevels(outputFile);
 			}
 
@@ -319,8 +325,8 @@ int main(int argc, char** argv)
 			if (scFlag)
 			{
 
-				ReadQueue rQue(scOutputFile, ref, readsGZ, bothStrandsFlag, false);
-				queryRoutineSC(rQue, readsGZ, bothStrandsFlag, scMetaFile);
+				ReadQueue rQue(scOutputFile, ref, false, bothStrandsFlag, false);
+				queryRoutineSC(rQue, bothStrandsFlag, scMetaFile);
 				rQue.printMethylationLevels(outputFile);
 
 			} else {
@@ -332,8 +338,10 @@ int main(int argc, char** argv)
 					exit(1);
 
 				}
-				ReadQueue rQue(readFile, ref, readsGZ, bothStrandsFlag);
-				queryRoutine(rQue, readsGZ, bothStrandsFlag);
+				// Auto-detect gzipped file based on suffix
+				bool readsAreGzipped = hasGzSuffix(readFile);
+				ReadQueue rQue(readFile, ref, readsAreGzipped, bothStrandsFlag);
+				queryRoutine(rQue, readsAreGzipped, bothStrandsFlag);
 				rQue.printMethylationLevels(outputFile);
 			}
         }
@@ -463,7 +471,7 @@ void queryRoutinePaired(ReadQueue& rQue, const bool isGZ, const bool bothStrands
 
 }
 
-void queryRoutineSC(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag, const char* scMetaFile)
+void queryRoutineSC(ReadQueue& rQue, const bool bothStrandsFlag, const char* scMetaFile)
 {
     std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
 
@@ -480,7 +488,9 @@ void queryRoutineSC(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag
 		pos = line.find_first_of(' ', oldPos);
 		std::string scPath(line, oldPos, pos - oldPos);
 
-		rQue.matchSCBatch(scPath.c_str(), scId, isGZ);
+		// Auto-detect gzipped file based on suffix
+		bool scIsGz = hasGzSuffix(scPath.c_str());
+		rQue.matchSCBatch(scPath.c_str(), scId, scIsGz);
 
 	}
 
@@ -489,7 +499,7 @@ void queryRoutineSC(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag
 
     std::cout << "Done processing in " << runtime << "s\n";
 }
-void queryRoutineSCPaired(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag, const char* scMetaFile)
+void queryRoutineSCPaired(ReadQueue& rQue, const bool bothStrandsFlag, const char* scMetaFile)
 {
     std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
 
@@ -512,7 +522,13 @@ void queryRoutineSCPaired(ReadQueue& rQue, const bool isGZ, const bool bothStran
 		std::string scPath2(line, oldPos, pos - oldPos);
 		std::cout << scPath2 << "\n\n";
 
-		rQue.matchSCBatchPaired(scPath1.c_str(), scPath2.c_str(), scId, isGZ);
+		// Auto-detect gzipped files based on suffix
+		bool sc1IsGz = hasGzSuffix(scPath1.c_str());
+		bool sc2IsGz = hasGzSuffix(scPath2.c_str());
+		if (sc1IsGz != sc2IsGz) {
+			std::cerr << "WARNING: Single cell paired files have different formats for " << scId << "\n";
+		}
+		rQue.matchSCBatchPaired(scPath1.c_str(), scPath2.c_str(), scId, sc1IsGz);
 	}
 
     std::chrono::high_resolution_clock::time_point endTime = std::chrono::high_resolution_clock::now();
@@ -551,9 +567,6 @@ void printHelp()
 
     std::cout << "\t--both_strands   \t\tAlways try to match the reads against both strands of\n";
     std::cout << "\t                 \t\treference file (unstranded libraries).\n\n";
-
-    std::cout << "\t--gzip_reads     \t\tRead file specified by -r is treated as gzipped\n";
-    std::cout << "\t                 \t\tfile (.gz file ending).\n\n";
 
     std::cout << "\t--store_index [.]\t\tStore index in provided file in binary format.\n\n";
 

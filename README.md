@@ -4,12 +4,9 @@
 > This is a customized version of FAME for the spike-in compatibility.
 > The original version can be found [here](https://github.com/FischerJo/FAME)
 
-> [!WARNING]
-> Always remember to check the parameters in CONST.h before compiling the program if you need to customize internal settings.
-
 > [!TIP]
-> FAME will not infer whether the input fastq files are gzipped or not.
-> If gzipped, do not forget to use the --gzip_reads flag.
+> FAME automatically detects gzipped fastq files based on the `.gz` file extension.
+> No manual flag is needed.
 
 > [!NOTE]
 > Currently, I have no intention of releasing this repo as a Pypi / Bioconda pkg,
@@ -161,7 +158,6 @@ Examples on how to use FAME in the command line are given in 2.D.
 | Flag    | Argument       | Description  |
 | ------------- |-------------| :-----:|
 | --genome | Filepath | Forces the tool to build an index for the specified .fasta reference file |
-| --gzip_reads | None | Treats the read files passed to -r or -r1 and -r2 as gzipped files. |
 | -h      | None | Lists all available options with a description. |
 | --help | None | see -h |
 | --human_opt | None | Uses optimizations for human reference genomes to prune away unlocalized contigs etc |
@@ -207,7 +203,7 @@ First build the index:
 
 Align the reads:
 ```
-./FAME --load_index /Path/To/produced_index -r1 /Path/To/r1.fastq.gz -r2 /Path/To/r2.fastq.gz --gzip_reads -o pairedResults
+./FAME --load_index /Path/To/produced_index -r1 /Path/To/r1.fastq.gz -r2 /Path/To/r2.fastq.gz -o pairedResults
 ```
 A file called pairedResults_cpg.tsv is generated containing the CpGs with corresponding methylation counts.
 
