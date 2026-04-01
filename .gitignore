@@ -58,3 +58,6 @@ metaCpGstats*
 
 # FAME binary
 FAME
+
+.claude/
+.qwen/
