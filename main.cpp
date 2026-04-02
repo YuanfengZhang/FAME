@@ -26,15 +26,21 @@
 #include "RefGenome.h"
 #include "ReadQueue.h"
 
-// Helper function to detect gzipped files by checking .gz suffix
-bool hasGzSuffix(const char* filepath) {
-    if (filepath == nullptr) return false;
+// Helper function to detect compression type by checking file suffix
+CompressType detectCompression(const char* filepath) {
+    if (filepath == nullptr) return CompressType::NONE;
     std::string path(filepath);
-    return path.length() >= 3 && path.compare(path.length() - 3, 3, ".gz") == 0;
+    if (path.length() >= 3 && path.compare(path.length() - 3, 3, ".gz") == 0)
+        return CompressType::GZIP;
+#ifdef ZSTD_SUPPORT
+    if (path.length() >= 4 && path.compare(path.length() - 4, 4, ".zst") == 0)
+        return CompressType::ZSTD;
+#endif
+    return CompressType::NONE;
 }
 
-void queryRoutine(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag);
-void queryRoutinePaired(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag);
+void queryRoutine(ReadQueue& rQue, const CompressType compType, const bool bothStrandsFlag);
+void queryRoutinePaired(ReadQueue& rQue, const CompressType compType, const bool bothStrandsFlag);
 void queryRoutineSC(ReadQueue& rQue, const bool bothStrandsFlag, const char* scMetaFile);
 void queryRoutineSCPaired(ReadQueue& rQue, const bool bothStrandsFlag, const char* scMetaFile);
 void printHelp();
@@ -297,7 +303,7 @@ int main(int argc, char** argv)
 			if (scFlag)
 			{
 
-				ReadQueue rQue(scOutputFile, ref, false, bothStrandsFlag, true);
+				ReadQueue rQue(scOutputFile, ref, CompressType::NONE, bothStrandsFlag, true);
 				queryRoutineSCPaired(rQue, bothStrandsFlag, scMetaFile);
 				rQue.printMethylationLevels(outputFile);
 
@@ -309,14 +315,14 @@ int main(int argc, char** argv)
 					exit(1);
 				}
 				// Auto-detect gzipped files based on suffix
-				bool r1IsGz = hasGzSuffix(readFile);
-				bool r2IsGz = hasGzSuffix(readFile2);
-				if (r1IsGz != r2IsGz) {
-					std::cerr << "WARNING: Read files have different formats (one .gz, one not). "
-					          << "Treating as " << (r1IsGz ? "gzipped" : "non-gzipped") << " based on -r1 file.\n\n";
+				CompressType r1Comp = detectCompression(readFile);
+				CompressType r2Comp = detectCompression(readFile2);
+				if (r1Comp != r2Comp) {
+					std::cerr << "WARNING: Read files have different compression formats. "
+					          << "Using format of -r1 file.\n\n";
 				}
-				ReadQueue rQue(readFile, readFile2, ref, r1IsGz, bothStrandsFlag);
-				queryRoutinePaired(rQue, r1IsGz, bothStrandsFlag);
+				ReadQueue rQue(readFile, readFile2, ref, r1Comp, bothStrandsFlag);
+				queryRoutinePaired(rQue, r1Comp, bothStrandsFlag);
 				rQue.printMethylationLevels(outputFile);
 			}
 
@@ -325,7 +331,7 @@ int main(int argc, char** argv)
 			if (scFlag)
 			{
 
-				ReadQueue rQue(scOutputFile, ref, false, bothStrandsFlag, false);
+				ReadQueue rQue(scOutputFile, ref, CompressType::NONE, bothStrandsFlag, false);
 				queryRoutineSC(rQue, bothStrandsFlag, scMetaFile);
 				rQue.printMethylationLevels(outputFile);
 
@@ -339,9 +345,9 @@ int main(int argc, char** argv)
 
 				}
 				// Auto-detect gzipped file based on suffix
-				bool readsAreGzipped = hasGzSuffix(readFile);
-				ReadQueue rQue(readFile, ref, readsAreGzipped, bothStrandsFlag);
-				queryRoutine(rQue, readsAreGzipped, bothStrandsFlag);
+				CompressType compType = detectCompression(readFile);
+				ReadQueue rQue(readFile, ref, compType, bothStrandsFlag);
+				queryRoutine(rQue, compType, bothStrandsFlag);
 				rQue.printMethylationLevels(outputFile);
 			}
         }
@@ -391,7 +397,7 @@ int main(int argc, char** argv)
 
 
 
-void queryRoutine(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag)
+void queryRoutine(ReadQueue& rQue, const CompressType compType, const bool bothStrandsFlag)
 {
 
     unsigned int readCounter = 0;
@@ -402,16 +408,27 @@ void queryRoutine(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag)
     uint64_t unSuccMatch = 0;
     std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
 
+    // Helper lambda to choose correct parse function
+    auto parseChunk = [&]() -> bool {
+        switch (compType) {
+            case CompressType::GZIP: return rQue.parseChunkGZ(readCounter);
+#ifdef ZSTD_SUPPORT
+            case CompressType::ZSTD: return rQue.parseChunkZST(readCounter);
+#endif
+            default: return rQue.parseChunk(readCounter);
+        }
+    };
+
 	if (!bothStrandsFlag)
 	{
 		++i;
-		isGZ ? rQue.parseChunkGZ(readCounter) : rQue.parseChunk(readCounter);
+		parseChunk();
 		rQue.matchReads(readCounter, succMatch, nonUniqueMatch, unSuccMatch, true);
 		rQue.decideStrand();
         std::cout << "Processed " << MyConst::CHUNKSIZE * (i) << " reads\n";
 	}
 
-    while(isGZ ? rQue.parseChunkGZ(readCounter) : rQue.parseChunk(readCounter))
+    while(parseChunk())
     {
         ++i;
         rQue.matchReads(readCounter, succMatch, nonUniqueMatch, unSuccMatch, false);
@@ -428,7 +445,7 @@ void queryRoutine(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag)
     std::cout << "Successfully matched: " << succMatch << " / Unsuccessfully matched: " << unSuccMatch << " / Nonunique matches: " << nonUniqueMatch << "\n";
 
 }
-void queryRoutinePaired(ReadQueue& rQue, const bool isGZ, const bool bothStrandsFlag)
+void queryRoutinePaired(ReadQueue& rQue, const CompressType compType, const bool bothStrandsFlag)
 {
 
     unsigned int readCounter = 0;
@@ -441,16 +458,27 @@ void queryRoutinePaired(ReadQueue& rQue, const bool isGZ, const bool bothStrands
 	uint64_t tooShortCount = 0;
     std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
 
+    // Helper lambda to choose correct parse function
+    auto parseChunk = [&]() -> bool {
+        switch (compType) {
+            case CompressType::GZIP: return rQue.parseChunkGZ(readCounter);
+#ifdef ZSTD_SUPPORT
+            case CompressType::ZSTD: return rQue.parseChunkZST(readCounter);
+#endif
+            default: return rQue.parseChunk(readCounter);
+        }
+    };
+
 	if (!bothStrandsFlag)
 	{
 		++i;
-		isGZ ? rQue.parseChunkGZ(readCounter) : rQue.parseChunk(readCounter);
+		parseChunk();
 		rQue.matchPairedReads(readCounter, succMatch, nonUniqueMatch, unSuccMatch, succPairedMatch, tooShortCount, true);
 		rQue.decideStrand();
         std::cout << "Processed " << MyConst::CHUNKSIZE * (i) << " paired reads\n";
 	}
 
-    while(isGZ ? rQue.parseChunkGZ(readCounter) : rQue.parseChunk(readCounter))
+    while(parseChunk())
     {
         ++i;
 		// if (i>2)
@@ -489,8 +517,8 @@ void queryRoutineSC(ReadQueue& rQue, const bool bothStrandsFlag, const char* scM
 		std::string scPath(line, oldPos, pos - oldPos);
 
 		// Auto-detect gzipped file based on suffix
-		bool scIsGz = hasGzSuffix(scPath.c_str());
-		rQue.matchSCBatch(scPath.c_str(), scId, scIsGz);
+		CompressType scComp = detectCompression(scPath.c_str());
+		rQue.matchSCBatch(scPath.c_str(), scId, scComp);
 
 	}
 
@@ -523,12 +551,12 @@ void queryRoutineSCPaired(ReadQueue& rQue, const bool bothStrandsFlag, const cha
 		std::cout << scPath2 << "\n\n";
 
 		// Auto-detect gzipped files based on suffix
-		bool sc1IsGz = hasGzSuffix(scPath1.c_str());
-		bool sc2IsGz = hasGzSuffix(scPath2.c_str());
-		if (sc1IsGz != sc2IsGz) {
+		CompressType sc1Comp = detectCompression(scPath1.c_str());
+		CompressType sc2Comp = detectCompression(scPath2.c_str());
+		if (sc1Comp != sc2Comp) {
 			std::cerr << "WARNING: Single cell paired files have different formats for " << scId << "\n";
 		}
-		rQue.matchSCBatchPaired(scPath1.c_str(), scPath2.c_str(), scId, sc1IsGz);
+		rQue.matchSCBatchPaired(scPath1.c_str(), scPath2.c_str(), scId, sc1Comp);
 	}
 
     std::chrono::high_resolution_clock::time_point endTime = std::chrono::high_resolution_clock::now();

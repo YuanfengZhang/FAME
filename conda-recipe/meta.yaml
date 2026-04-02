@@ -13,12 +13,15 @@ requirements:
     - {{ compiler('cxx') }}
     - cmake
     - make
+    - pkg-config
   host:
     - zlib
+    - zstd
     - llvm-openmp  # [osx]
     - libgomp      # [linux]
   run:
     - zlib
+    - zstd
     - llvm-openmp  # [osx]
     - libgomp      # [linux]
 
@@ -27,11 +30,26 @@ test:
     - fame --help
 
 about:
-  home: https://github.com/user/FAME
+  home: https://github.com/FischerJo/FAME
   license: GPL-3.0-or-later
   license_file: LICENSE
-  summary: Fast methylation alignment tool for WGBS data
+  summary: Fast and Accurate Methylation Aligner for WGBS data
   description: |
-    FAME is a fast methylation alignment and calling tool for whole-genome
-    bisulfite sequencing (WGBS) data. It uses spaced seeds and bit-parallel
-    algorithms for efficient alignment.
+    FAME (Fast and Accurate MEthylation Aligner) is a tool for aligning
+    Whole Genome Bisulfite Sequencing (WGBS) reads and calling CpG methylation
+    levels. It uses spaced seeds and bit-parallel algorithms for efficient
+    alignment of large mammalian genomes.
+
+    Features:
+    - Supports .fastq, .fastq.gz, and .fastq.zst input files
+    - Automatic compression format detection
+    - OpenMP parallelization for multi-core systems
+    - Single-cell WGBS support
+  doc_url: https://github.com/FischerJo/FAME#readme
+  dev_url: https://github.com/FischerJo/FAME
+
+extra:
+  recipe-maintainers:
+    - your-github-username
+  identifiers:
+    - doi:10.1186/s13059-017-1225-7

@@ -58,3 +58,9 @@ metaCpGstats*
 
 # FAME binary
 FAME
+
+.claude/
+.qwen/
+
+# Build directory
+build/

@@ -5,17 +5,13 @@
 > The original version can be found [here](https://github.com/FischerJo/FAME)
 
 > [!TIP]
-> FAME automatically detects gzipped fastq files based on the `.gz` file extension.
-> No manual flag is needed.
-
-> [!NOTE]
-> Currently, I have no intention of releasing this repo as a Pypi / Bioconda pkg,
-> and the refactoring might cost more time than I think.
+> FAME automatically detects compressed fastq files based on file extension.
+> Supported formats: `.gz` (gzip, always available) and `.zst` (zstd, requires libzstd).
 
 **F**ast and **A**ccurate **ME**thylation Aligner for large mammalian genomes.
-Carries out alignment and methylation calling for CpGs of Whole Genome Bisulfite Sequencing (WGBS) reads in one go without the need of intermediate alignment or buffer files. 
+Carries out alignment and methylation calling for CpGs of Whole Genome Bisulfite Sequencing (WGBS) reads in one go without the need of intermediate alignment or buffer files.
 The algorithm is working on the full alphabet (A,C,G,T), resolving the asymmetric mapping problem\* correctly.
-Reference genomes are expected to be .fasta files and reads in .fastq (or .fastq.gz) format.
+Reference genomes are expected to be .fasta files and reads in .fastq (or .fastq.gz / .fastq.zst) format.
 
 The code is written in C++ and parallelized using OpenMP and is licensed under GPL3.
 
@@ -24,27 +20,42 @@ Read Thymines to map to Reference Cytosines, but not vice versa. This is termed 
 
 ## 0) News
 
+4/2/2026	New release v0.4 with improved usability and format support.
+
+New features:
+- CORENUM parameter can now be specified at runtime via command line
+- CHROMNUM is automatically detected from input FASTA file
+- Automatic detection of input fastq compression format (uncompressed/GZIP/ZSTD)
+
 7/27/2021	New beta release v0.3 with several important bugfixes.
 
 There is now an alpha release for single cell support.
 
 ## 1) Getting Started
 
-The following steps explain how to install and setup FAME .
+The following steps explain how to install and setup FAME.
 
 
 ### A) Dependencies
 
-FAME is dependent on the following libraries, which are all shipped with this repository.
-So no additional work is necessary here.
+**Required system libraries:**
+
+| Library | Description | Ubuntu/Debian | CentOS/RHEL | macOS |
+|---------|-------------|---------------|-------------|-------|
+| zlib | gzip compression support | `apt install zlib1g-dev` | `yum install zlib-devel` | (built-in) |
+| libzstd | zstd compression support (optional) | `apt install libzstd-dev` | `yum install libzstd-devel` | `brew install zstd` |
+
+**Bundled libraries (included in repository):**
 
 * [ntHash](https://github.com/bcgsc/ntHash) - a fast library for genomic rolling hash functions.
 * [sparsehash](https://github.com/sparsehash/sparsehash) - an efficient hash map implementation from Google.
 * [hopscotch-map](https://github.com/Tessil/hopscotch-map) - an efficient hash map implementation by Tessil.
 * [gzstream](https://www.cs.unc.edu/Research/compgeom/gzstream/) - a C++ stream interface for working with gzip files.
+* zstdstream - a C++ stream interface for working with zstd files.
 
 To compile the program, a recent version of the GNU Compiler Collection (gcc) or LLVM Clang (clang) is required.
-The gzstream library is dependent on [zlib](https://zlib.net/), which is usually installed on Linux systems.
+
+**Note:** If libzstd is not installed, FAME will still compile but without zstd support (only `.gz` and uncompressed files will be supported).
 
 
 ### B) Installation
@@ -63,6 +74,8 @@ git clone https://github.com/FischerJo/FAME
 make clean
 make
 ```
+
+The build system will automatically detect whether libzstd is available and enable zstd support accordingly.
 
 ### Using CMake (recommended for installation)
 

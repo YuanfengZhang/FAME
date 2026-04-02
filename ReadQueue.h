@@ -33,12 +33,25 @@
 #include <hopscotch_map.h>
 
 #include "gzstream/gzstream.h"
+
+// Optional zstd support
+#ifdef ZSTD_SUPPORT
+#include "zstdstream/zstdstream.h"
+#endif
+
 #include "CONST.h"
 #include "RefGenome.h"
 #include "Read.h"
 #include "ShiftAnd.h"
 #include "LevenshtDP.h"
 
+// Compression type enumeration for supporting multiple formats
+// ZSTD is only available when compiled with ZSTD_SUPPORT defined
+enum class CompressType { NONE, GZIP
+#ifdef ZSTD_SUPPORT
+, ZSTD
+#endif
+};
 
 class ReadQueue
 {
@@ -53,27 +66,27 @@ class ReadQueue
         // ARGUMENTS:
         //          filePath    path to file containing reads in fastq format
         //          ref         internal representation of reference genome
-        //          isGZ        flag - true iff file is gzipped
+        //          compType    compression type (NONE, GZIP, ZSTD)
 		//          bsFlag		flag - true iff there is no orientation of the read (i.e. could be C->T or G->A converted)
-        ReadQueue(const char* filePath, RefGenome& ref, const bool isGZ, const bool bsFlag);
+        ReadQueue(const char* filePath, RefGenome& ref, const CompressType compType, const bool bsFlag);
 
         // for paired end
         // ARGUMENTS:
         //          filePath    path to file containing read1 of paired reads in fastq format
         //          filePath2   path to file containing read2 of paired reads in fastq format
         //          ref         internal representation of reference genome
-        //          isGZ        flag - true iff file is gzipped
+        //          compType    compression type (NONE, GZIP, ZSTD)
 		//          bsFlag		flag - true iff there is no orientation of read 1 of the read pair
         //
         // NOTE:
         //          provided files are ASSUMED to have equal number of reads in correct (paired) order!
-        ReadQueue(const char* filePath, const char* filePath2, RefGenome& reference, const bool isGZ, const bool bsFlag);
+        ReadQueue(const char* filePath, const char* filePath2, RefGenome& reference, const CompressType compType, const bool bsFlag);
 		// for single cell paired end
 		// ARGUMENTS:
 		// 			...
 		// 			scOutputPath	path to file which will contain single cell counts after processing
 		// 			isP				flag if reads are paired
-		ReadQueue(const char* scOutputPath, RefGenome& reference, const bool isGZ, const bool bsFlag, const bool isP);
+		ReadQueue(const char* scOutputPath, RefGenome& reference, const CompressType compType, const bool bsFlag, const bool isP);
 
         // -----------
 
@@ -84,6 +97,9 @@ class ReadQueue
         // returns true if neither read error nor EOF occured, false otherwise
         bool parseChunk(unsigned int& procReads);
         bool parseChunkGZ(unsigned int& procReads);
+#ifdef ZSTD_SUPPORT
+        bool parseChunkZST(unsigned int& procReads);
+#endif
 
 		// Decides to which strand r1 should always be matched against
 		void decideStrand();
@@ -99,8 +115,8 @@ class ReadQueue
         bool matchPairedReads(const unsigned int& procReads, uint64_t& succMatch, uint64_t& nonUniqueMatch, uint64_t& unSuccMatch, uint64_t& succPairedMatch, uint64_t& tooShortCountMatch, const bool getStranded);
 
 		// Match batch of single cell reads given by file
-		bool matchSCBatch(const char* scFile, const std::string scId, const bool isGZ);
-		bool matchSCBatchPaired(const char* scFile1, const char* scFile2, const std::string scId, const bool isGZ);
+		bool matchSCBatch(const char* scFile, const std::string scId, const CompressType compType);
+		bool matchSCBatchPaired(const char* scFile1, const char* scFile2, const std::string scId, const CompressType compType);
 
         // Print the CpG methylation levels to the given filename
         // Two files are generated, one called filename_cpg.tsv
@@ -253,9 +269,18 @@ class ReadQueue
         // input stream of file given as path to Ctor
         std::ifstream file;
         igzstream igz;
+#ifdef ZSTD_SUPPORT
+        izstdstream izst;
+#endif
         // second file if paired
         std::ifstream file2;
         igzstream igz2;
+#ifdef ZSTD_SUPPORT
+        izstdstream izst2;
+#endif
+
+        // current compression type for reading
+        CompressType compType;
 
 
         // representation of the reference genome

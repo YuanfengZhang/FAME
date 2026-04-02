@@ -22,7 +22,7 @@
 
 #include "ReadQueue.h"
 
-ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const bool isGZ, const bool bsFlag) :
+ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const CompressType comp, const bool bsFlag) :
         ref(reference)
     ,   readBuffer(MyConst::CHUNKSIZE)
 	,	isPaired(false)
@@ -33,6 +33,7 @@ ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const bool isGZ
 	,	r1FwdMatches(0)
 	,	r1RevMatches(0)
 	,	matchR1Fwd(true)
+	,	compType(comp)
     //TODO
     ,   of("errOut.txt")
 {
@@ -47,7 +48,7 @@ ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const bool isGZ
     matchPairedStats.resize(MyConst::coreNum, 0);
     tooShortCounts.resize(MyConst::coreNum, 0);
 
-    if (isGZ)
+    if (compType == CompressType::GZIP)
     {
 
         igz.open(filePath);
@@ -56,6 +57,17 @@ ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const bool isGZ
 			std::cerr << "Opening read file " << std::string(filePath) << " was unsuccessful! Exiting..." << std::endl;
 			exit(1);
 		}
+
+#ifdef ZSTD_SUPPORT
+    } else if (compType == CompressType::ZSTD) {
+
+        izst.open(filePath);
+		if(!izst)
+		{
+			std::cerr << "Opening read file " << std::string(filePath) << " was unsuccessful! Exiting..." << std::endl;
+			exit(1);
+		}
+#endif
 
     } else {
 
@@ -87,7 +99,7 @@ ReadQueue::ReadQueue(const char* filePath, RefGenome& reference, const bool isGZ
     lmap['T'%16] = 3;
 
 }
-ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& reference, const bool isGZ, const bool bsFlag) :
+ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& reference, const CompressType comp, const bool bsFlag) :
         ref(reference)
     ,   readBuffer(MyConst::CHUNKSIZE)
     ,   readBuffer2(MyConst::CHUNKSIZE)
@@ -99,6 +111,7 @@ ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& ref
 	,	r1FwdMatches(0)
 	,	r1RevMatches(0)
 	,	matchR1Fwd(true)
+	,	compType(comp)
 	// TODO
     ,   of("errOut.txt")
 {
@@ -149,7 +162,7 @@ ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& ref
 	// cCountFile.close();
 
 
-    if (isGZ)
+    if (compType == CompressType::GZIP)
     {
 
         igz.open(filePath);
@@ -164,6 +177,23 @@ ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& ref
 			std::cerr << "Opening read file " << std::string(filePath2) << " was unsuccessful! Exiting..." << std::endl;
 			exit(1);
 		}
+
+#ifdef ZSTD_SUPPORT
+    } else if (compType == CompressType::ZSTD) {
+
+        izst.open(filePath);
+		if(!izst)
+		{
+			std::cerr << "Opening read file " << std::string(filePath) << " was unsuccessful! Exiting..." << std::endl;
+			exit(1);
+		}
+        izst2.open(filePath2);
+		if(!izst2)
+		{
+			std::cerr << "Opening read file " << std::string(filePath2) << " was unsuccessful! Exiting..." << std::endl;
+			exit(1);
+		}
+#endif
 
     } else {
 
@@ -200,7 +230,7 @@ ReadQueue::ReadQueue(const char* filePath, const char* filePath2, RefGenome& ref
     lmap['G'%16] = 2;
     lmap['T'%16] = 3;
 }
-ReadQueue::ReadQueue(const char* scOutputPath, RefGenome& reference, const bool isGZ, const bool bsFlag, const bool isP) :
+ReadQueue::ReadQueue(const char* scOutputPath, RefGenome& reference, const CompressType comp, const bool bsFlag, const bool isP) :
         ref(reference)
     ,   readBuffer(MyConst::CHUNKSIZE)
     ,   readBuffer2(MyConst::CHUNKSIZE)
@@ -214,6 +244,7 @@ ReadQueue::ReadQueue(const char* scOutputPath, RefGenome& reference, const bool 
 	,	r1FwdMatches(0)
 	,	r1RevMatches(0)
 	,	matchR1Fwd(true)
+	,	compType(comp)
 	// TODO
     ,   of("errOut.txt")
 {
@@ -402,6 +433,86 @@ bool ReadQueue::parseChunkGZ(unsigned int& procReads)
     procReads = readCounter;
     return false;
 }
+
+
+#ifdef ZSTD_SUPPORT
+bool ReadQueue::parseChunkZST(unsigned int& procReads)
+{
+
+    std::string id;
+
+    // counter on how many reads have been read so far
+    unsigned int readCounter = 0;
+
+    // read first line of read (aka @'SEQID')
+    while (std::getline(izst, id))
+    {
+
+        // read the next line (aka raw sequence)
+        std::string seq;
+        std::getline(izst, seq);
+        // construct read and push it to buffer
+        readBuffer[readCounter] = Read(seq, id);
+        // read the rest of read (aka +'SEQID' and quality score sequence)
+        std::getline(izst,id);
+        std::getline(izst,seq);
+
+        ++readCounter;
+
+        // if buffer is read completely, return
+        if (readCounter >= MyConst::CHUNKSIZE)
+        {
+            procReads = MyConst::CHUNKSIZE;
+            break;
+
+        }
+    }
+    // if needed, read paired reads
+    if (isPaired)
+    {
+
+        unsigned int readCounter2 = 0;
+        // read first line of read (aka @'SEQID')
+        while (std::getline(izst2, id))
+        {
+
+            // read the next line (aka raw sequence)
+            std::string seq;
+            std::getline(izst2, seq);
+            // construct read and push it to buffer
+            readBuffer2[readCounter2] = Read(seq, id);
+            // read the rest of read (aka +'SEQID' and quality score sequence)
+            std::getline(izst2,id);
+            std::getline(izst2,seq);
+
+            ++readCounter2;
+
+            // if buffer is read completely, return
+            if (readCounter2 >= MyConst::CHUNKSIZE)
+            {
+                procReads = MyConst::CHUNKSIZE;
+                return true;
+
+            }
+        }
+        // check if same number of reads is processed so far
+        if (readCounter != readCounter2)
+        {
+            std::cerr << "Not the same number of reads available in the paired read files! \
+                            Make sure that you paired all reads. \
+                            Single reads have to be processed separately.\n\n";
+            exit(1);
+        }
+    } else {
+
+        if (readCounter >= MyConst::CHUNKSIZE)
+            return true;
+    }
+
+    procReads = readCounter;
+    return false;
+}
+#endif
 
 
 void ReadQueue::decideStrand()
@@ -1688,7 +1799,7 @@ bool ReadQueue::matchPairedReads(const unsigned int& procReads, uint64_t& succMa
 
 
 
-bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const bool isGZ)
+bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const CompressType comp)
 {
     unsigned int readCounter = 0;
     unsigned int i = 0;
@@ -1697,7 +1808,7 @@ bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const b
     uint64_t nonUniqueMatch = 0;
     uint64_t unSuccMatch = 0;
 
-    if (isGZ)
+    if (comp == CompressType::GZIP)
     {
 
         igz.open(scFile);
@@ -1706,6 +1817,17 @@ bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const b
 			std::cerr << "ERROR: Opening file `" << std::string(scFile) << "' failed.\n";
 			return EXIT_FAILURE;
 		}
+
+#ifdef ZSTD_SUPPORT
+    } else if (comp == CompressType::ZSTD) {
+
+        izst.open(scFile);
+		if (!izst.good())
+		{
+			std::cerr << "ERROR: Opening file `" << std::string(scFile) << "' failed.\n";
+			return EXIT_FAILURE;
+		}
+#endif
 
     } else {
 
@@ -1732,14 +1854,27 @@ bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const b
 	if (!bothStrandsFlag)
 	{
 		++i;
-		isGZ ? parseChunkGZ(readCounter) : parseChunk(readCounter);
+		if (comp == CompressType::GZIP) parseChunkGZ(readCounter);
+#ifdef ZSTD_SUPPORT
+		else if (comp == CompressType::ZSTD) parseChunkZST(readCounter);
+#endif
+		else parseChunk(readCounter);
 		matchReads(readCounter, succMatch, nonUniqueMatch, unSuccMatch, true);
 		decideStrand();
         std::cout << "Processed " << MyConst::CHUNKSIZE * (i) << " paired reads\n";
 	}
 
-    while(isGZ ? parseChunkGZ(readCounter) : parseChunk(readCounter))
+    while(true)
     {
+        bool hasMore;
+        if (comp == CompressType::GZIP) hasMore = parseChunkGZ(readCounter);
+#ifdef ZSTD_SUPPORT
+        else if (comp == CompressType::ZSTD) hasMore = parseChunkZST(readCounter);
+#endif
+        else hasMore = parseChunk(readCounter);
+
+        if (!hasMore) break;
+
         ++i;
         matchReads(readCounter, succMatch, nonUniqueMatch, unSuccMatch, false);
         std::cout << "Processed " << MyConst::CHUNKSIZE * (i) << " paired reads\n";
@@ -1753,7 +1888,7 @@ bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const b
     std::cout << "\tOverall successfully matched: " << succMatch << "\n\tUnsuccessfully matched: " << unSuccMatch << "\n\tNonunique matches: " << nonUniqueMatch << "\n";
 	std::cout << "\n\nAlignment rate: " << (double)succMatch/(double)(2*(MyConst::CHUNKSIZE * i + readCounter)) << "\n\n\n";
 
-    if (isGZ)
+    if (comp == CompressType::GZIP)
     {
 
 		// if (igz.eof())
@@ -1769,6 +1904,13 @@ bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const b
 		// 	return EXIT_FAILURE;
 		// }
 
+#ifdef ZSTD_SUPPORT
+    } else if (comp == CompressType::ZSTD) {
+
+        izst.close();
+		izst.clear();
+#endif
+
     } else {
 
         file.close();
@@ -1777,7 +1919,7 @@ bool ReadQueue::matchSCBatch(const char* scFile, const std::string scId, const b
 	printSCMethylationLevels(scId);
 	return true;
 }
-bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, const std::string scId, const bool isGZ)
+bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, const std::string scId, const CompressType comp)
 {
     unsigned int readCounter = 0;
     unsigned int i = 0;
@@ -1788,7 +1930,7 @@ bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, con
     uint64_t unSuccMatch = 0;
 	uint64_t tooShortCount = 0;
 
-    if (isGZ)
+    if (comp == CompressType::GZIP)
     {
 
         igz.open(scFile1);
@@ -1803,6 +1945,23 @@ bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, con
 			std::cerr << "ERROR: Opening file `" << std::string(scFile2) << "' failed.\n";
 			return EXIT_FAILURE;
 		}
+
+#ifdef ZSTD_SUPPORT
+    } else if (comp == CompressType::ZSTD) {
+
+        izst.open(scFile1);
+        izst2.open(scFile2);
+		if (!izst.good())
+		{
+			std::cerr << "ERROR: Opening file `" << std::string(scFile1) << "' failed.\n";
+			return EXIT_FAILURE;
+		}
+		if (!izst2.good())
+		{
+			std::cerr << "ERROR: Opening file `" << std::string(scFile2) << "' failed.\n";
+			return EXIT_FAILURE;
+		}
+#endif
 
     } else {
 
@@ -1822,14 +1981,27 @@ bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, con
 	if (!bothStrandsFlag)
 	{
 		++i;
-		isGZ ? parseChunkGZ(readCounter) : parseChunk(readCounter);
+		if (comp == CompressType::GZIP) parseChunkGZ(readCounter);
+#ifdef ZSTD_SUPPORT
+		else if (comp == CompressType::ZSTD) parseChunkZST(readCounter);
+#endif
+		else parseChunk(readCounter);
 		matchPairedReads(readCounter, succMatch, nonUniqueMatch, unSuccMatch, succPairedMatch, tooShortCount, true);
 		decideStrand();
         std::cout << "Processed " << MyConst::CHUNKSIZE * (i) << " paired reads\n";
 	}
 
-    while(isGZ ? parseChunkGZ(readCounter) : parseChunk(readCounter))
+    while(true)
     {
+        bool hasMore;
+        if (comp == CompressType::GZIP) hasMore = parseChunkGZ(readCounter);
+#ifdef ZSTD_SUPPORT
+        else if (comp == CompressType::ZSTD) hasMore = parseChunkZST(readCounter);
+#endif
+        else hasMore = parseChunk(readCounter);
+
+        if (!hasMore) break;
+
         ++i;
 		// if (i>2)
 		// 	break;
@@ -1845,7 +2017,7 @@ bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, con
     std::cout << "\tOverall successfully matched: " << succMatch << "\n\tUnsuccessfully matched: " << unSuccMatch << "\n\tNonunique matches: " << nonUniqueMatch << "\n\nInvalid reads (containing N or too short): " << tooShortCount << "\n\nFully matched pairs: " << succPairedMatch << "\n";
 	std::cout << "\n\nAlignment rate excluding invalid reads: " << succPairedMatch/(MyConst::CHUNKSIZE * i + readCounter - (tooShortCount/2)) << "\n\n\n";
 
-    if (isGZ)
+    if (comp == CompressType::GZIP)
     {
 
 		// if (igz.eof())
@@ -1872,6 +2044,15 @@ bool ReadQueue::matchSCBatchPaired(const char* scFile1, const char* scFile2, con
 		// 	std::cerr << "ERROR: Closing file `" << std::string(scFile2) << "' failed.\n";
 		// 	return EXIT_FAILURE;
 		// }
+
+#ifdef ZSTD_SUPPORT
+    } else if (comp == CompressType::ZSTD) {
+
+        izst.close();
+        izst2.close();
+		izst.clear();
+		izst2.clear();
+#endif
 
     } else {
 
