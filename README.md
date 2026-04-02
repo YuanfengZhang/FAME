@@ -20,6 +20,13 @@ Read Thymines to map to Reference Cytosines, but not vice versa. This is termed 
 
 ## 0) News
 
+4/2/2026	New release v0.4 with improved usability and format support.
+
+New features:
+- CORENUM parameter can now be specified at runtime via command line
+- CHROMNUM is automatically detected from input FASTA file
+- Automatic detection of input fastq compression format (uncompressed/GZIP/ZSTD)
+
 7/27/2021	New beta release v0.3 with several important bugfixes.
 
 There is now an alpha release for single cell support.
