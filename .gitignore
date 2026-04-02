@@ -61,3 +61,6 @@ FAME
 
 .claude/
 .qwen/
+
+# Build directory
+build/
